@@ -16,6 +16,9 @@ export type AtsAnalysis = {
   band: "Excellent" | "Good" | "Needs work" | "Low readability";
   checks: AtsCheck[];
   suggestions: string[];
+  source?: "local" | "ai";
+  analyzedAt?: string;
+  model?: string;
 };
 
 export type SavedResume = {

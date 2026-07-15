@@ -10,11 +10,15 @@ import { toApplication } from "@/lib/application-data";
 import { APPLICATION_STATUSES, type Application, type ApplicationStatus } from "@/lib/applications";
 import { z } from "zod";
 
-type ApplicationInput = Omit<Application, "id">;
+type ApplicationInput = Omit<Application, "id" | "updatedAt">;
 type ActionResult = { ok: true; application: Application } | { ok: false; error: string };
 type DeleteResult = { ok: true } | { ok: false; error: string };
 const applicationIdSchema = z.uuid();
 const applicationStatusSchema = z.enum(APPLICATION_STATUSES);
+
+function applicationDateTimestamp(appliedDate: string) {
+  return new Date(`${appliedDate}T12:00:00.000Z`);
+}
 
 export async function createApplication(input: ApplicationInput): Promise<ActionResult> {
   const ownerId = await requireUserId();
@@ -22,7 +26,14 @@ export async function createApplication(input: ApplicationInput): Promise<Action
 
   if (!parsed.success) return { ok: false, error: "Please check the application details and try again." };
 
-  const [created] = await getDb().insert(applications).values({ ...parsed.data, ownerId }).returning();
+  const [created] = await getDb()
+    .insert(applications)
+    .values({
+      ...parsed.data,
+      ownerId,
+      updatedAt: applicationDateTimestamp(parsed.data.appliedDate),
+    })
+    .returning();
   revalidatePath("/");
   return { ok: true, application: toApplication(created) };
 }
@@ -32,10 +43,12 @@ export async function updateApplication(id: string, input: ApplicationInput): Pr
   const parsedId = applicationIdSchema.safeParse(id);
   const parsed = applicationInputSchema.safeParse(input);
 
-  if (!parsedId.success || !parsed.success) return { ok: false, error: "Please check the application details and try again." };
+  if (!parsedId.success || !parsed.success)
+    return { ok: false, error: "Please check the application details and try again." };
 
-  const [updated] = await getDb().update(applications)
-    .set({ ...parsed.data, updatedAt: new Date() })
+  const [updated] = await getDb()
+    .update(applications)
+    .set({ ...parsed.data, updatedAt: applicationDateTimestamp(parsed.data.appliedDate) })
     .where(and(eq(applications.id, id), eq(applications.ownerId, ownerId)))
     .returning();
 
@@ -51,8 +64,9 @@ export async function updateApplicationStatus(id: string, status: ApplicationSta
 
   if (!parsedId.success || !parsedStatus.success) return { ok: false, error: "Please select a valid status." };
 
-  const [updated] = await getDb().update(applications)
-    .set({ status: parsedStatus.data, updatedAt: new Date() })
+  const [updated] = await getDb()
+    .update(applications)
+    .set({ status: parsedStatus.data })
     .where(and(eq(applications.id, id), eq(applications.ownerId, ownerId)))
     .returning();
 
@@ -64,7 +78,8 @@ export async function updateApplicationStatus(id: string, status: ApplicationSta
 export async function deleteApplication(id: string): Promise<DeleteResult> {
   const ownerId = await requireUserId();
   if (!applicationIdSchema.safeParse(id).success) return { ok: false, error: "Application not found." };
-  const [deleted] = await getDb().delete(applications)
+  const [deleted] = await getDb()
+    .delete(applications)
     .where(and(eq(applications.id, id), eq(applications.ownerId, ownerId)))
     .returning({ id: applications.id });
 

@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import { GmailAuthorizationError } from "@/lib/gmail-connection";
 import { syncGmailOwner } from "@/lib/gmail-sync";
 
 export const runtime = "nodejs";
@@ -10,6 +11,7 @@ export async function POST() {
   try {
     return Response.json(await syncGmailOwner(userId));
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Gmail sync failed." }, { status: 502 });
+    const status = error instanceof GmailAuthorizationError ? 409 : 502;
+    return Response.json({ error: error instanceof Error ? error.message : "Gmail sync failed." }, { status });
   }
 }

@@ -1,0 +1,2 @@
+ALTER TABLE "applications" ADD COLUMN "gmail_origin_message_id" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "applications_owner_gmail_origin_idx" ON "applications" USING btree ("owner_id","gmail_origin_message_id");

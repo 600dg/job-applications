@@ -7,42 +7,53 @@ A private job-application dashboard and job-fit workspace built with Next.js, Ty
 - Clerk authentication protects the dashboard and server mutations.
 - Neon Postgres stores owner-scoped applications through Drizzle ORM.
 - Private Vercel Blob storage holds résumé PDFs; server-side extraction makes their text available to the matcher.
-- Saved résumé versions include a transparent 100-point ATS-readiness report and primary-version selection.
-- Direct, read-only Gmail OAuth checks application messages and applies high-confidence status updates to matching tracker records.
+- Saved résumé versions receive an AI-assisted 100-point ATS-readiness report on upload, with a local fallback and primary-version selection.
+- Clerk-managed, read-only Gmail access imports high-confidence application confirmations and applies later status updates to the same tracker records.
+- Applications are ordered by their latest update. Manual editor saves use the **Applied on** date as their initial update date; the newest later matched Gmail email supplies the timestamp after that.
 - New accounts receive sample applications once; later changes persist.
-- The fit analyzer remains a transparent, local ruleset for now.
+- The fit analyzer compares an owner-scoped saved résumé with a pasted job description through OpenAI structured output, with an immediate local fallback.
+- General and job-tailored résumé improvement dialogs provide grounded original-to-rewrite suggestions without modifying the uploaded PDF.
 
-Gmail access uses a separate Google OAuth connection with the `gmail.readonly` scope. Refresh tokens are encrypted at rest, every detected change is recorded in an audit table, and the integration never sends, labels, or deletes email. High-confidence messages update the matching application automatically; lower-confidence matches are retained as ignored audit entries. The dashboard checks every two hours while it is open, offers a manual sync, and runs a daily Vercel Cron check on the Hobby plan. A true two-hour background schedule requires Vercel Pro or an external scheduler.
+Gmail access uses the Google connection attached to the user's Clerk account with the `gmail.readonly` scope. Clerk owns the provider tokens; Trackline stores only an owner-scoped sync preference, connection health, imported application records, and audit history. The integration never sends, labels, or deletes email. It searches up to one year of application-related mail across multiple Gmail result pages, while explicitly excluding known real-estate offer noise. A high-confidence confirmation creates an application when no matching record exists, and later assessment, interview, rejection, or offer messages update that record. Lower-confidence messages are ignored rather than added to the dashboard. The dashboard checks every two hours while it is open, offers a manual sync, and runs a daily Vercel Cron check on the Hobby plan. A true two-hour background schedule requires Vercel Pro or an external scheduler.
 
-AI analysis, external ATS vendors, OCR, and job discovery are not connected yet. The current ATS-readiness score is an explainable in-app heuristic, not a guarantee of how an employer's ATS will score a document.
+AI analysis uses the server-only `OPENAI_API_KEY` and defaults to `gpt-5-mini` unless `OPENAI_MODEL` is set. Résumé text and job descriptions are sent to OpenAI only for requested analysis and improvement features; keys and stored résumé text are never exposed to client components. The reports remain directional and are not guarantees of how an employer's ATS will score a document. External ATS vendors, OCR, automatic document rewriting/export, and job discovery are not connected yet.
 
-## Direct Gmail setup
+## AI setup and behavior
 
-### Current limitation and intended direction
+Add `OPENAI_API_KEY` to `.env.local` for local development and as a sensitive Production environment variable in Vercel. `OPENAI_MODEL` is optional.
 
-Right now Google authorization is developer-managed: the Google Cloud OAuth client is created manually, its credentials are supplied through local/Vercel environment variables, and each intended Gmail account must be added as a Google OAuth test user. The application already owns the secure OAuth callback, encrypted token storage, and Gmail sync logic, but the overall setup is not yet an app-managed onboarding experience.
+- Readable PDF uploads automatically run the AI ATS review. If OpenAI is unavailable, the upload succeeds with the local explainable fallback.
+- **Generate improvements** shows verified original excerpts beside suggested rewrites and copy controls. It never changes the source PDF.
+- **Analyze fit** produces a structured fit score, matches, gaps, keywords, and recommendations for the selected résumé and pasted job description.
+- **Generate tailored edits** uses the same selected résumé and posting to propose truthful job-specific revisions.
+- Improvement prompts forbid invented credentials, responsibilities, achievements, and metrics. Suggestions requiring missing evidence are returned as follow-up questions.
 
-In a future version, Google authorization should be app-side from the user's perspective: users should connect, inspect connection health, reconnect, and disconnect Gmail entirely inside Trackline. The Google client secret must remain server-side; "app-side" does not mean exposing OAuth credentials in browser code. Production readiness also requires a production Google consent screen and any verification Google requires for the restricted Gmail scope.
+## Gmail setup through Clerk
 
-1. Enable the Gmail API in a Google Cloud project.
-2. Configure an OAuth consent screen and add the intended Gmail account as a test user while the app remains in testing.
-3. Create a Web application OAuth client with `https://job-applications-red.vercel.app/api/gmail/callback` as an authorized redirect URI. For local testing, also add `http://localhost:3000/api/gmail/callback`.
-4. Add `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GMAIL_TOKEN_ENCRYPTION_KEY`, and `CRON_SECRET` to the deployment environment.
+Trackline requests Gmail access through Clerk's Google social connection. The Google client secret belongs in Clerk, never in Trackline environment variables or client code.
 
-The restricted Gmail scope may cause Google to show an unverified-app warning until the OAuth app completes Google's verification process. Keeping the app in testing and listing the account as a test user is sufficient for private development.
+1. In Google Cloud, enable the Gmail API for the OAuth project.
+2. Configure the Google OAuth consent screen as **External** and **Testing**, add `https://www.googleapis.com/auth/gmail.readonly`, and add the intended Gmail account as a test user.
+3. In Clerk Dashboard, open **SSO connections > Google**, enable **Use custom credentials**, and copy Clerk's **Authorized Redirect URI**.
+4. In Google Cloud, create a **Web application** OAuth client. Add `https://job-applications-red.vercel.app` and `http://localhost:3000` as authorized JavaScript origins, and use the redirect URI copied from Clerk as the authorized redirect URI.
+5. Paste the Google client ID and client secret into the Clerk Google connection. Do not add them to `.env.local` or Vercel.
+6. Open Trackline, choose **Connect Gmail** or **Reconnect Gmail**, approve read-only access in Clerk's Connected accounts screen, then choose **Check & sync**.
+
+The Gmail button can turn Trackline's scheduled syncing on or off without removing Google as a sign-in method. Provider permissions can be removed from Clerk's account settings or the Google Account permissions page. `gmail.readonly` is a restricted scope; keeping the Google app in Testing and listing the personal account as a test user is appropriate for private development, while public production use requires Google's verification process.
 
 ## Handoff status
 
 - Production deployment: [job-applications-red.vercel.app](https://job-applications-red.vercel.app)
-- Database migrations through `drizzle/0003_ambitious_punisher.sql` are applied.
-- `GMAIL_TOKEN_ENCRYPTION_KEY` and `CRON_SECRET` are configured in Vercel.
-- `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` are not configured yet, so the dashboard intentionally displays **Google setup required**.
-- Clerk currently uses development keys in production and emits a warning. Replace them with a Clerk production instance before treating the deployment as production-ready.
+- Database migrations through `drizzle/0005_sudden_eternals.sql` are applied.
+- `CRON_SECRET` is configured in Vercel. Google OAuth credentials are configured only in Clerk.
+- Clerk currently uses development keys for this private deployment. That is acceptable for personal use; switch to a production Clerk instance before treating the app as public production.
+- The Clerk Google connection is configured and the personal inbox can sync with `gmail.readonly`.
 - Gmail checks run every two hours while the dashboard is open and daily through Vercel Cron. Vercel Hobby does not support a persistent two-hour cron schedule.
-- Gmail auto-updates require a strong company match and at least 90% classifier confidence. All detected decisions are retained in `email_suggestions` as an audit trail.
-- ATS and job-fit scoring are transparent local heuristics. No external ATS provider, OpenAI integration, Gmail write access, job discovery service, or OCR is enabled.
+- Gmail imports and updates require extracted company and role data with at least 90% confidence. Imported messages are deduplicated per owner, and detected decisions are retained in `email_suggestions` as an audit trail.
+- OpenAI powers automatic ATS analysis, job-fit analysis, and grounded résumé improvements through owner-scoped server routes. The local ATS and fit heuristics remain fallbacks.
+- No external ATS provider, Gmail write access, job discovery service, OCR, editable résumé draft storage, or document export is enabled.
 
-The recommended next step is to complete the Google Cloud OAuth setup, connect a real test inbox, and validate confirmation, assessment, interview, rejection, and offer messages against real application records. After that, add app-managed reconnect/disconnect controls and move the Google consent configuration toward production verification.
+The recommended next feature is a job-discovery tab. Start with explicit job URLs/descriptions and reputable APIs or feeds before adding scheduled discovery, deduplication, alerts, or source-specific scraping.
 
 ## Run locally
 
@@ -60,10 +71,16 @@ Open [http://localhost:3000](http://localhost:3000) and sign in. Environment fil
 
 ```bash
 npm run lint
+npm run lint:fix
+npm run typecheck
+npm run format
+npm run check
 npm run build
 npm run db:generate
 npm run db:migrate
 npm run db:studio
 ```
+
+Husky runs `lint-staged` before each commit. Staged TypeScript/JavaScript files are fixed with ESLint and formatted with Prettier; staged CSS, JSON, Markdown, and YAML files are formatted with Prettier. The hook leaves unstaged files alone.
 
 Production: [job-applications-red.vercel.app](https://job-applications-red.vercel.app)

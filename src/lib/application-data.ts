@@ -16,37 +16,47 @@ function toApplication(row: typeof applications.$inferSelect): Application {
     appliedDate: row.appliedDate,
     source: row.source,
     notes: row.notes,
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
 async function seedWorkspace(ownerId: string) {
   const db = getDb();
-  const created = await db.insert(userProfiles).values({
-    clerkUserId: ownerId,
-    sampleDataSeeded: true,
-  }).onConflictDoNothing().returning({ clerkUserId: userProfiles.clerkUserId });
+  const created = await db
+    .insert(userProfiles)
+    .values({
+      clerkUserId: ownerId,
+      sampleDataSeeded: true,
+    })
+    .onConflictDoNothing()
+    .returning({ clerkUserId: userProfiles.clerkUserId });
 
   if (!created.length) return;
 
-  await db.insert(applications).values(SAMPLE_APPLICATIONS.map((application) => ({
-    ownerId,
-    company: application.company,
-    role: application.role,
-    location: application.location,
-    status: application.status,
-    appliedDate: application.appliedDate,
-    source: application.source,
-    notes: application.notes,
-  })));
+  await db.insert(applications).values(
+    SAMPLE_APPLICATIONS.map((application) => ({
+      ownerId,
+      company: application.company,
+      role: application.role,
+      location: application.location,
+      status: application.status,
+      appliedDate: application.appliedDate,
+      source: application.source,
+      notes: application.notes,
+      updatedAt: new Date(application.updatedAt),
+    })),
+  );
 }
 
 export async function listApplications(): Promise<Application[]> {
   const ownerId = await requireUserId();
   await seedWorkspace(ownerId);
 
-  const rows = await getDb().select().from(applications)
+  const rows = await getDb()
+    .select()
+    .from(applications)
     .where(eq(applications.ownerId, ownerId))
-    .orderBy(desc(applications.appliedDate), asc(applications.company));
+    .orderBy(desc(applications.updatedAt), asc(applications.company));
 
   return rows.map(toApplication);
 }
