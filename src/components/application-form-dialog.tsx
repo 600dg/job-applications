@@ -3,13 +3,20 @@
 import { useState, type FormEvent } from "react";
 import { APPLICATION_STATUSES, type Application, type ApplicationStatus } from "@/lib/applications";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-type FormValues = Omit<Application, "id">;
+type FormValues = Omit<Application, "id" | "updatedAt">;
 
 const EMPTY_FORM: FormValues = {
   company: "",
@@ -29,7 +36,19 @@ type ApplicationFormDialogProps = {
 };
 
 export function ApplicationFormDialog({ open, application, onOpenChange, onSave }: ApplicationFormDialogProps) {
-  const [values, setValues] = useState<FormValues>(() => application ? { ...application } : { ...EMPTY_FORM });
+  const [values, setValues] = useState<FormValues>(() =>
+    application
+      ? {
+          company: application.company,
+          role: application.role,
+          location: application.location,
+          status: application.status,
+          appliedDate: application.appliedDate,
+          source: application.source,
+          notes: application.notes,
+        }
+      : { ...EMPTY_FORM },
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,8 +62,9 @@ export function ApplicationFormDialog({ open, application, onOpenChange, onSave 
     setError("");
 
     try {
-      await onSave(values);
+      const save = onSave(values);
       onOpenChange(false);
+      await save;
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save this application.");
     } finally {
@@ -58,40 +78,95 @@ export function ApplicationFormDialog({ open, application, onOpenChange, onSave 
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{application ? "Edit application" : "Add application"}</DialogTitle>
-            <DialogDescription>{application ? "Update the details for this opportunity." : "Add a role to your job search pipeline."}</DialogDescription>
+            <DialogDescription>
+              {application ? "Update the details for this opportunity." : "Add a role to your job search pipeline."}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-5 py-6 sm:grid-cols-2">
             <Field label="Company" htmlFor="company">
-              <Input id="company" value={values.company} onChange={(e) => update("company", e.target.value)} placeholder="Acme Inc." required autoFocus />
+              <Input
+                id="company"
+                value={values.company}
+                onChange={(e) => update("company", e.target.value)}
+                placeholder="Acme Inc."
+                required
+                autoFocus
+              />
             </Field>
             <Field label="Role" htmlFor="role">
-              <Input id="role" value={values.role} onChange={(e) => update("role", e.target.value)} placeholder="Product Engineer" required />
+              <Input
+                id="role"
+                value={values.role}
+                onChange={(e) => update("role", e.target.value)}
+                placeholder="Product Engineer"
+                required
+              />
             </Field>
             <Field label="Location" htmlFor="location">
-              <Input id="location" value={values.location} onChange={(e) => update("location", e.target.value)} placeholder="Remote" required />
+              <Input
+                id="location"
+                value={values.location}
+                onChange={(e) => update("location", e.target.value)}
+                placeholder="Remote"
+                required
+              />
             </Field>
             <Field label="Status" htmlFor="status">
               <Select value={values.status} onValueChange={(value) => update("status", value as ApplicationStatus)}>
-                <SelectTrigger id="status" className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>{APPLICATION_STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent>
+                <SelectTrigger id="status" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {APPLICATION_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </Field>
-            <Field label="Application date" htmlFor="applied-date">
-              <Input id="applied-date" type="date" value={values.appliedDate} onChange={(e) => update("appliedDate", e.target.value)} required />
+            <Field label="Applied on" htmlFor="applied-date">
+              <Input
+                id="applied-date"
+                type="date"
+                value={values.appliedDate}
+                onChange={(e) => update("appliedDate", e.target.value)}
+                required
+              />
             </Field>
             <Field label="Source" htmlFor="source">
-              <Input id="source" value={values.source} onChange={(e) => update("source", e.target.value)} placeholder="LinkedIn, referral…" required />
+              <Input
+                id="source"
+                value={values.source}
+                onChange={(e) => update("source", e.target.value)}
+                placeholder="LinkedIn, referral…"
+                required
+              />
             </Field>
             <div className="sm:col-span-2">
               <Field label="Notes" htmlFor="notes">
-                <Textarea id="notes" value={values.notes} onChange={(e) => update("notes", e.target.value)} placeholder="Add follow-ups, contacts, or interview details…" rows={3} />
+                <Textarea
+                  id="notes"
+                  value={values.notes}
+                  onChange={(e) => update("notes", e.target.value)}
+                  placeholder="Add follow-ups, contacts, or interview details…"
+                  rows={3}
+                />
               </Field>
             </div>
           </div>
           <DialogFooter>
-            {error && <p role="alert" className="mr-auto text-sm text-destructive">{error}</p>}
-            <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={saving}>{saving ? "Saving…" : application ? "Save changes" : "Add application"}</Button>
+            {error && (
+              <p role="alert" className="mr-auto text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving…" : application ? "Save changes" : "Add application"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -100,5 +175,10 @@ export function ApplicationFormDialog({ open, application, onOpenChange, onSave 
 }
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
-  return <div className="grid gap-2"><Label htmlFor={htmlFor}>{label}</Label>{children}</div>;
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+    </div>
+  );
 }
