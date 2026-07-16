@@ -24,6 +24,7 @@ export function GmailSyncControl({
   const [syncStage, setSyncStage] = useState("");
   const [disconnecting, setDisconnecting] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState(initialConnection.lastSyncedAt);
+  const [relativeNow, setRelativeNow] = useState<number | null>(null);
   const [message, setMessage] = useState(initialConnection.lastError);
 
   const sync = useCallback(
@@ -92,6 +93,17 @@ export function GmailSyncControl({
     }, TWO_HOURS);
     return () => window.clearInterval(timer);
   }, [connection.connected, sync]);
+
+  useEffect(() => {
+    if (!lastSyncedAt) return;
+    const update = () => setRelativeNow(Date.now());
+    const initialTimer = window.setTimeout(update, 0);
+    const interval = window.setInterval(update, 60_000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
+    };
+  }, [lastSyncedAt]);
 
   function openAccountSettings() {
     setMessage(
@@ -195,14 +207,18 @@ export function GmailSyncControl({
       <p aria-live="polite" className="text-xs text-muted-foreground">
         {syncStage ||
           message ||
-          (lastSyncedAt ? "Last checked " + formatRelative(lastSyncedAt) : "Connected - waiting for first sync")}
+          (lastSyncedAt
+            ? relativeNow !== null
+              ? "Last checked " + formatRelative(lastSyncedAt, relativeNow)
+              : "Last checked recently"
+            : "Connected - waiting for first sync")}
       </p>
     </div>
   );
 }
 
-function formatRelative(value: string) {
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
+function formatRelative(value: string, now: number) {
+  const minutes = Math.max(0, Math.round((now - new Date(value).getTime()) / 60000));
   if (minutes < 1) return "just now";
   if (minutes < 60) return minutes + "m ago";
   const hours = Math.round(minutes / 60);
