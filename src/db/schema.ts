@@ -1,4 +1,16 @@
-import { boolean, date, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  date,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import type { AtsAnalysis } from "@/lib/resumes";
 
 export const userProfiles = pgTable("user_profiles", {
@@ -87,4 +99,21 @@ export const gmailConnections = pgTable("gmail_connections", {
   lastError: text("last_error").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const jobProviderUsage = pgTable(
+  "job_provider_usage",
+  {
+    provider: text("provider").notNull(),
+    periodKind: text("period_kind").notNull(),
+    periodStart: date("period_start").notNull(),
+    requestCount: integer("request_count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.provider, table.periodKind, table.periodStart] })],
+);
+
+export const jobSearchCooldowns = pgTable("job_search_cooldowns", {
+  ownerId: text("owner_id").primaryKey(),
+  lastSearchedAt: timestamp("last_searched_at", { withTimezone: true }).notNull().defaultNow(),
 });

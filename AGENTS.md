@@ -33,7 +33,7 @@ The Clerk Google connection is configured with custom Google OAuth credentials a
 
 ### Current OpenAI state
 
-`OPENAI_API_KEY` is configured locally and as a sensitive Vercel Production variable. `OPENAI_MODEL` is optional and defaults to `gpt-5-mini`. Keep both server-only.
+`OPENAI_API_KEY` is configured as a sensitive Vercel Production variable. Vercel cannot reveal that existing sensitive value through `vercel env pull`, and the current Development environment does not supply it, so a fresh machine must restore the original key manually in `.env.local` to exercise AI paths locally. `OPENAI_MODEL` is optional and defaults to `gpt-5-mini`. Keep both server-only.
 
 - Readable résumé uploads run a structured AI ATS analysis and persist it in the existing `ats_analysis` JSONB field. The local analyzer is the upload fallback.
 - `/api/fit-analysis` loads the selected owner-scoped résumé server-side and returns structured fit analysis for a pasted job description.
@@ -41,12 +41,26 @@ The Clerk Google connection is configured with custom Google OAuth credentials a
 - Generated improvement suggestions are intentionally ephemeral. Uploaded PDFs and extracted source text are never overwritten.
 - Prompts must not invent credentials, metrics, tools, employers, responsibilities, or achievements. Missing evidence should become a follow-up question.
 
+### Current job discovery state
+
+- The **Find jobs** tab generates résumé-derived role searches, then searches configured Jooble and Adzuna APIs plus Eluta's documented OpenSearch interface. Do not replace these adapters with HTML scraping.
+- Ranking compares explicit years-of-experience requirements with dated or explicitly stated résumé evidence. Hard minimums receive a stronger score penalty than preferred experience, while incomplete provider excerpts remain unknown.
+- `/api/job-discovery` supports owner-scoped `profile` and `search` actions. Every selected résumé is validated with both `resume_id` and the current Clerk `owner_id`.
+- Search fans out across at most four distinct role queries, normalizes provider records, deduplicates by company/title/location, and caps candidates before ranking.
+- Jooble requires `JOOBLE_API_KEY`; Adzuna requires `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`. Keep all three server-only. Missing credentials disable only that provider.
+- Provider cache misses are limited through `job_provider_usage`; `job_search_cooldowns` enforces an 8-second owner-scoped search cooldown. Identical provider requests use Vercel Runtime Cache for 15 minutes, with a local in-process fallback.
+- Default Jooble and Adzuna budgets are 120/day, 750/week, and 2,000/month. Optional `JOOBLE_*_REQUEST_LIMIT` and `ADZUNA_*_REQUEST_LIMIT` variables may lower or deliberately adjust them. Keep Adzuna below the allowance granted to the account.
+- Results are ranked against readable résumé text with structured OpenAI output when the server key is available and an explainable local fallback otherwise. Résumé search suggestions have the same fallback behavior.
+- Provider excerpts and rankings are temporary. The route does not persist listing content, and every result links back to its source for full review.
+- Scores are preliminary because the feed may contain only an excerpt. Keep that limitation visible if the ranking UI changes.
+- Review each provider's current terms before extending the integration. Do not scrape result pages or add scheduled copying without authorization.
+
 ### Important next work
 
 1. Run the importer against the real inbox and review any genuine application formats that remain unmatched.
 2. Replace Clerk development keys with a production Clerk instance if the private app becomes public.
 3. If true two-hour background Gmail polling is required, upgrade from Vercel Hobby or use an external scheduler; the current Vercel cron is daily.
-4. Build job discovery in stages: explicit URL/description intake first, then reputable APIs or feeds, followed by deduplication and scheduled alerts. Review source terms before adding scraping.
+4. Configure Jooble and Adzuna keys in Development and Production, then validate provider coverage and ranking quality with real searches. For saved jobs or alerts, confirm each provider's storage and redistribution terms before persisting listing content.
 5. If editable AI résumé drafts are added, version them separately from uploaded source PDFs and require user review before export.
 
 Run `npm run lint`, `npm run build`, and proportionate browser verification before deploying. Database changes require `npm run db:generate`, inspection of the generated SQL, and `npm run db:migrate`.

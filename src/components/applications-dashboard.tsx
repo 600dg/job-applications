@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { ApplicationFormDialog } from "@/components/application-form-dialog";
 import { JobFitAnalyzer } from "@/components/job-fit-analyzer";
+import { JobDiscovery } from "@/components/job-discovery";
 import { GmailSyncControl } from "@/components/gmail-sync-control";
 import {
   AlertDialog,
@@ -242,6 +243,7 @@ export function ApplicationsDashboard({
         <TabsList aria-label="Workspace navigation" className="w-full sm:w-auto">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="fit-analysis">Fit analysis</TabsTrigger>
+          <TabsTrigger value="job-discovery">Find jobs</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard" className="space-y-6">
           <PipelineOverview
@@ -393,6 +395,9 @@ export function ApplicationsDashboard({
         </TabsContent>
         <TabsContent value="fit-analysis">
           <JobFitAnalyzer initialResumes={initialResumes} />
+        </TabsContent>
+        <TabsContent value="job-discovery">
+          <JobDiscovery initialResumes={initialResumes} />
         </TabsContent>
       </Tabs>
       {formOpen && (
