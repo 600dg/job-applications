@@ -50,6 +50,20 @@
       "when": 1784233066218,
       "tag": "0006_happy_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784402681566,
+      "tag": "0007_illegal_fenris",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784403544966,
+      "tag": "0008_pretty_falcon",
+      "breakpoints": true
     }
   ]
 }

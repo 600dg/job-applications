@@ -12,6 +12,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { AtsAnalysis } from "@/lib/resumes";
+import type { ApplicationEmailAnalysis } from "@/lib/email-suggestions";
 
 export const userProfiles = pgTable("user_profiles", {
   clerkUserId: text("clerk_user_id").primaryKey(),
@@ -40,7 +41,12 @@ export const applications = pgTable(
     index("applications_owner_idx").on(table.ownerId),
     index("applications_owner_status_idx").on(table.ownerId, table.status),
     index("applications_owner_applied_date_idx").on(table.ownerId, table.appliedDate),
-    uniqueIndex("applications_owner_gmail_origin_idx").on(table.ownerId, table.gmailOriginMessageId),
+    uniqueIndex("applications_owner_gmail_origin_idx").on(
+      table.ownerId,
+      table.gmailOriginMessageId,
+      table.company,
+      table.role,
+    ),
   ],
 );
 
@@ -87,7 +93,7 @@ export const emailSuggestions = pgTable(
   },
   (table) => [
     index("email_suggestions_owner_state_idx").on(table.ownerId, table.state),
-    uniqueIndex("email_suggestions_owner_message_idx").on(table.ownerId, table.gmailMessageId),
+    uniqueIndex("email_suggestions_owner_message_idx").on(table.ownerId, table.gmailMessageId, table.applicationId),
   ],
 );
 
@@ -100,6 +106,23 @@ export const gmailConnections = pgTable("gmail_connections", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const gmailMessageReviews = pgTable(
+  "gmail_message_reviews",
+  {
+    ownerId: text("owner_id").notNull(),
+    gmailMessageId: text("gmail_message_id").notNull(),
+    gmailThreadId: text("gmail_thread_id").notNull(),
+    analysisVersion: integer("analysis_version").notNull(),
+    analyses: jsonb("analyses").$type<ApplicationEmailAnalysis[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.ownerId, table.gmailMessageId] }),
+    index("gmail_message_reviews_owner_idx").on(table.ownerId),
+  ],
+);
 
 export const jobProviderUsage = pgTable(
   "job_provider_usage",

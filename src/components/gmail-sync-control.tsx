@@ -33,7 +33,8 @@ export function GmailSyncControl({
       setSyncStage("Searching Gmail...");
       const stageTimers = [
         window.setTimeout(() => setSyncStage("Reading job emails..."), 900),
-        window.setTimeout(() => setSyncStage("Updating dashboard..."), 2500),
+        window.setTimeout(() => setSyncStage("Verifying application emails with AI..."), 2500),
+        window.setTimeout(() => setSyncStage("Updating dashboard..."), 5000),
       ];
       if (showFeedback) setMessage("");
       try {
@@ -42,6 +43,8 @@ export function GmailSyncControl({
           applications?: Application[];
           created?: number;
           updated?: number;
+          reviewed?: number;
+          pendingAiReview?: number;
           email?: string;
           error?: string;
         };
@@ -64,7 +67,9 @@ export function GmailSyncControl({
           if (data.created)
             results.push(`${data.created} ${data.created === 1 ? "application" : "applications"} imported`);
           if (data.updated) results.push(`${data.updated} status ${data.updated === 1 ? "update" : "updates"} applied`);
-          setMessage(results.length ? `${results.join("; ")}.` : "No new applications or status updates found.");
+          if (data.reviewed) results.push(`${data.reviewed} candidate emails AI-verified`);
+          if (data.pendingAiReview) results.push(`${data.pendingAiReview} queued for the next sync`);
+          setMessage(results.length ? `${results.join("; ")}.` : "No verified applications or status updates found.");
         }
       } catch (syncError) {
         const errorMessage = syncError instanceof Error ? syncError.message : "Gmail sync failed.";

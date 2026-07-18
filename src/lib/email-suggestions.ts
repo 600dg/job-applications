@@ -46,6 +46,8 @@ const STATUS_SIGNALS: Array<{ status: ApplicationStatus; patterns: RegExp[]; rea
       /\boffer of employment\b/i,
       /\bpleased to (?:extend|offer)\b/i,
       /\bjob offer\b/i,
+      /\bconditional offer\b/i,
+      /\bemployment offer\b/i,
       /\bcongratulations.{0,80}\boffer\b/i,
     ],
     reason: "Offer language was found in the message.",
@@ -61,6 +63,13 @@ const STATUS_SIGNALS: Array<{ status: ApplicationStatus; patterns: RegExp[]; rea
       /\bgoing in a direction\b/i,
       /\bnot (?:been )?selected\b/i,
       /\bunable to (?:move|proceed) forward\b/i,
+      /\bnot (?:be )?progressing (?:your|the) application\b/i,
+      /\bno longer (?:be )?under consideration\b/i,
+      /\bdecided not to (?:move|proceed) forward\b/i,
+      /\bpursu(?:e|ing) other candidates\b/i,
+      /\bfilled (?:the|this) (?:role|position)\b/i,
+      /\b(?:your application|you were) (?:was |were )?(?:not successful|unsuccessful)\b/i,
+      /\bwill not (?:be )?progress(?:ing)?\b/i,
     ],
     reason: "Rejection language was found in the message.",
   },
@@ -72,6 +81,9 @@ const STATUS_SIGNALS: Array<{ status: ApplicationStatus; patterns: RegExp[]; rea
       /\bcase stud(?:y|ies)\b/i,
       /\bcomplete (?:the|this|your) test\b/i,
       /\btake-home\b/i,
+      /\bskills? (?:test|evaluation)\b/i,
+      /\bonline (?:test|evaluation|exercise)\b/i,
+      /\bpre-employment (?:test|assessment)\b/i,
     ],
     reason: "An assessment or take-home task was detected.",
   },
@@ -82,6 +94,11 @@ const STATUS_SIGNALS: Array<{ status: ApplicationStatus; patterns: RegExp[]; rea
       /\bschedule (?:a|your) (?:call|conversation)\b/i,
       /\bmeet with (?:the|our) (?:team|hiring manager)\b/i,
       /\brecruiter (?:call|screen)\b/i,
+      /\bphone screen\b/i,
+      /\bscreening (?:call|conversation|interview)\b/i,
+      /\binterview availability\b/i,
+      /\bmeet (?:our|the) team\b/i,
+      /\binvit(?:e|ed|ation) (?:you )?to (?:an? )?interview\b/i,
     ],
     reason: "Interview or scheduling language was found.",
   },
@@ -89,11 +106,17 @@ const STATUS_SIGNALS: Array<{ status: ApplicationStatus; patterns: RegExp[]; rea
     status: "Applied",
     patterns: [
       /\bapplication (?:has been |was )?received\b/i,
-      /\breceived your application\b/i,
+      /\bapplications? (?:have|has) been received\b/i,
+      /\breceived your applications?\b/i,
       /\bthank you for (?:applying|your (?:job )?(?:recent )?application)\b/i,
       /\bapplication confirmation\b/i,
+      /\byour applications?\b/i,
       /\bconfirm(?:ing)? (?:the )?receipt of your (?:application|resume)\b/i,
       /\bapplication acknowledgement\b/i,
+      /\bapplication (?:was )?submitted\b/i,
+      /\bapplications? (?:were|was) submitted\b/i,
+      /\bsuccessfully (?:submitted|completed) your application\b/i,
+      /\bthank you for your interest in\b/i,
     ],
     reason: "An application confirmation was detected.",
   },
@@ -112,6 +135,7 @@ const NON_JOB_PATTERNS = [
 
 const JOB_CONTEXT_PATTERN =
   /\b(?:job|career|candidate|hiring|position|role|resume|employment|recruit(?:er|ing|ment)?|assessment|interview|application)\b/i;
+const ATS_SENDER_PATTERN = /@[^>\s]*(?:ashbyhq|dayforce|greenhouse|icims|lever|myworkday|smartrecruiters)[^>\s]*/i;
 const ROLE_STOP_WORDS = new Set([
   "a",
   "an",
@@ -148,7 +172,8 @@ function normalize(value: string) {
 function cleanCompany(value: string) {
   return decodeHtml(value)
     .replace(/[|].*$/, "")
-    .replace(/\s+(?:recruitment|recruiting|careers?|jobs?)$/i, "")
+    .replace(/\s+via\s+(?:ashby|dayforce|greenhouse|icims|lever|smartrecruiters|workday)\s*$/i, "")
+    .replace(/\s+(?:talent acquisition|recruitment|recruiting|hiring|careers?|jobs?)(?: team)?$/i, "")
     .replace(/\s+/g, " ")
     .replace(/^[\s:–—-]+|[\s:–—,.;!-]+$/g, "")
     .trim();
@@ -171,6 +196,7 @@ function isPlausibleRole(value: string) {
     value.length >= 2 &&
     value.length <= 100 &&
     words.length <= 16 &&
+    !/\b(?:job\s+title|position\s+title|position|role)\s*:/i.test(value) &&
     !/\b(?:application review|candidate applications|recruitment process|what to expect|log in anytime)\b/i.test(value)
   );
 }
@@ -196,7 +222,7 @@ function senderCompany(sender: string) {
   return "";
 }
 
-function extractCompanyAndRole(message: GmailMessageSummary) {
+function extractPrimaryCompanyAndRole(message: GmailMessageSummary) {
   const subject = decodeHtml(message.subject).replace(/\s+/g, " ").trim();
   const content = decodeHtml(message.bodyText || message.snippet)
     .replace(/\s+/g, " ")
@@ -232,6 +258,8 @@ function extractCompanyAndRole(message: GmailMessageSummary) {
   const companyInSubject =
     subject.match(/thank you for applying (?:at|to)\s+(.+?)(?:[.!]|$)/i)?.[1] ??
     subject.match(/thank you for your application to\s+(.+?)(?:\s*[-–—]|$)/i)?.[1] ??
+    subject.match(/application (?:confirmation|acknowledgement)\s+(?:at|from|with)\s+(.+?)(?:[.!]|$)/i)?.[1] ??
+    subject.match(/your applications?\s+(?:at|with|to)\s+(.+?)(?:[.!]|$)/i)?.[1] ??
     subject.match(/application\s+(?:to|with)\s+(.+?)\s*[-–—]/i)?.[1] ??
     subject.match(/application update.{0,20}\b(?:at|with)\s+(.+?)$/i)?.[1];
   const companyAfterConfirmation = subject.match(/^thank you for your application\s*[-–—]\s*(.+)$/i)?.[1];
@@ -252,6 +280,58 @@ function extractCompanyAndRole(message: GmailMessageSummary) {
   const company = cleanCompany(companyInSubject ?? companyAfterConfirmation ?? senderCompany(message.sender));
   const role = cleanRole(roleInContent ?? dashRole ?? "");
   return { company, role, confidence: company && role ? 90 : 0 };
+}
+
+function extractCompanyAndRoles(message: GmailMessageSummary) {
+  const primary = extractPrimaryCompanyAndRole(message);
+  const subject = decodeHtml(message.subject).replace(/\s+/g, " ").trim();
+  const content = decodeHtml(message.bodyText || message.snippet);
+  const combined = `${subject}\n${content}`;
+  const labeledCompany = content.match(
+    /(?:^|\n)\s*(?:company|organization|employer)\s*[:\-–—]\s*([^\n|•;]{2,100})/im,
+  )?.[1];
+  const fallbackCompany = primary.company || cleanCompany(labeledCompany ?? "") || senderCompany(message.sender);
+  const candidates: Array<{ company: string; role: string; confidence: number }> = [];
+
+  function add(company: string, role: string, confidence: number) {
+    const cleanedCompany = cleanCompany(company);
+    const cleanedRole = cleanRole(role);
+    if (!cleanedCompany || !isPlausibleRole(cleanedRole)) return;
+    if (
+      candidates.some(
+        (candidate) =>
+          companyAliases(candidate.company).some((alias) => companyAliases(cleanedCompany).includes(alias)) &&
+          roleMatchScore(candidate.role, cleanedRole) >= 0.9,
+      )
+    )
+      return;
+    candidates.push({ company: cleanedCompany, role: cleanedRole, confidence });
+  }
+
+  if (primary.company && primary.role) add(primary.company, primary.role, primary.confidence);
+
+  const roleAtCompany =
+    /(?:application (?:for|to)|appl(?:ied|ying) (?:for|to)|interest in)\s+(?:the\s+)?(?:[A-Z]?\d+(?:-WD)?\s+)?([^.!?\n|•]{2,120}?)\s+(?:role\s+|position\s+)?at\s+([^.!?\n|•]{2,100})(?=[.!?\n|•]|$)/gi;
+  for (const match of combined.matchAll(roleAtCompany)) add(match[2], match[1], 96);
+
+  const repeatedRole =
+    /(?:^|[\n|•])\s*(?:your\s+)?(?:application (?:for|to)|appl(?:ied|ying) for)\s+(?:the\s+)?([^.!?\n|•]{2,120})(?=[.!?\n|•]|$)/gim;
+  for (const match of combined.matchAll(repeatedRole)) {
+    const role = match[1].replace(/\s+(?:role|position)\s+at\s+.+$/i, "").replace(/\s+at\s+.+$/i, "");
+    add(fallbackCompany, role, 94);
+  }
+
+  const labeledRole = /(?:^|[\n|•])\s*(?:job\s+title|position\s+title|position|role)\s*[:\-–—]\s*([^\n|•;]{2,100})/gim;
+  for (const match of combined.matchAll(labeledRole)) add(fallbackCompany, match[1], 94);
+
+  const requisitionRole =
+    /(?:^|[\n|•])\s*(?:requisition\s*(?:id|number)?\s*[:\-–—]?\s*)?(?:R-?\d{3,}|REQ-?\d+|\d+-WD)\s*[:\-–—]\s*([^\n|•;]{2,100})/gim;
+  for (const match of combined.matchAll(requisitionRole)) add(fallbackCompany, match[1], 94);
+
+  const repeatedApplication = /(?:^|[\n|•])\s*(?:application|job)\s*(?:\d+)?\s*[:\-–—]\s*([^\n|•;]{2,100})/gim;
+  for (const match of combined.matchAll(repeatedApplication)) add(fallbackCompany, match[1], 92);
+
+  return candidates.slice(0, 12);
 }
 
 function companyAliases(company: string) {
@@ -289,6 +369,14 @@ function messageContent(message: GmailMessageSummary) {
   return decodeHtml(`${message.subject} ${message.sender} ${message.snippet} ${message.bodyText ?? ""}`);
 }
 
+export function isPotentialApplicationEmail(message: GmailMessageSummary) {
+  const source = messageContent(message);
+  return (
+    !NON_JOB_PATTERNS.some((pattern) => pattern.test(source)) &&
+    (JOB_CONTEXT_PATTERN.test(source) || ATS_SENDER_PATTERN.test(message.sender))
+  );
+}
+
 export function detectApplicationStatus(message: GmailMessageSummary) {
   const source = messageContent(message);
   const terminalSignal = STATUS_SIGNALS.slice(0, 2).find((item) =>
@@ -304,22 +392,23 @@ export function detectApplicationStatus(message: GmailMessageSummary) {
   return STATUS_SIGNALS.slice(2).find((item) => item.patterns.some((pattern) => pattern.test(source))) ?? null;
 }
 
-export function analyzeApplicationEmail(message: GmailMessageSummary): ApplicationEmailAnalysis | null {
-  const source = messageContent(message);
-  if (NON_JOB_PATTERNS.some((pattern) => pattern.test(source)) || !JOB_CONTEXT_PATTERN.test(source)) return null;
+export function analyzeApplicationEmails(message: GmailMessageSummary): ApplicationEmailAnalysis[] {
+  if (!isPotentialApplicationEmail(message)) return [];
   const signal = detectApplicationStatus(message);
-  if (!signal) return null;
-  const extracted = extractCompanyAndRole(message);
-  if (!extracted.company || !extracted.role || extracted.company.length < 2 || !isPlausibleRole(extracted.role))
-    return null;
+  if (!signal) return [];
+  const extractedApplications = extractCompanyAndRoles(message);
 
-  return {
+  return extractedApplications.map((extracted) => ({
     company: extracted.company,
     role: extracted.role,
     detectedStatus: signal.status,
     confidence: extracted.confidence,
     reason: `${signal.reason} The company and role were extracted from the application email.`,
-  };
+  }));
+}
+
+export function analyzeApplicationEmail(message: GmailMessageSummary): ApplicationEmailAnalysis | null {
+  return analyzeApplicationEmails(message)[0] ?? null;
 }
 
 export function findMatchingApplication(
@@ -344,6 +433,29 @@ export function findMatchingApplication(
     companyAliases(application.company).some((alias) => searchable.includes(alias)),
   );
   return matches.length === 1 ? matches[0] : null;
+}
+
+export function findMatchingApplications(
+  message: GmailMessageSummary,
+  applications: Application[],
+  analyses = analyzeApplicationEmails(message),
+) {
+  const matches = new Map<string, Application>();
+  for (const analysis of analyses) {
+    const application = findMatchingApplication(message, applications, analysis);
+    if (application) matches.set(application.id, application);
+  }
+
+  const searchable = normalize(messageContent(message));
+  for (const application of applications) {
+    const companyFound = companyAliases(application.company).some((alias) => searchable.includes(alias));
+    const roleFound = roleTokens(application.role).filter((token) => searchable.includes(token)).length;
+    const materialRoleTokens = roleTokens(application.role).length;
+    if (companyFound && materialRoleTokens > 0 && roleFound / materialRoleTokens >= 0.75) {
+      matches.set(application.id, application);
+    }
+  }
+  return Array.from(matches.values());
 }
 
 export function classifyApplicationEmail(
