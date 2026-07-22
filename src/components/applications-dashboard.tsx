@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { ApplicationFormDialog } from "@/components/application-form-dialog";
 import { JobFitAnalyzer } from "@/components/job-fit-analyzer";
-import { JobDiscovery } from "@/components/job-discovery";
 import { GmailSyncControl } from "@/components/gmail-sync-control";
 import {
   AlertDialog,
@@ -55,6 +54,7 @@ import {
 } from "@/app/actions/applications";
 import type { SavedResume } from "@/lib/resumes";
 import type { GmailConnectionStatus } from "@/lib/gmail-connection";
+import type { GmailImportReview } from "@/lib/email-suggestions";
 
 const STATUS_STYLES: Record<ApplicationStatus, string> = {
   Wishlist: "border-slate-400/20 bg-slate-400/10 text-slate-300",
@@ -80,10 +80,12 @@ export function ApplicationsDashboard({
   initialApplications,
   initialResumes,
   initialGmailConnection,
+  initialGmailImportReviews,
 }: {
   initialApplications: Application[];
   initialResumes: SavedResume[];
   initialGmailConnection: GmailConnectionStatus;
+  initialGmailImportReviews: GmailImportReview[];
 }) {
   const [applications, setApplications] = useState(initialApplications);
   const [status, setStatus] = useState("all");
@@ -243,12 +245,12 @@ export function ApplicationsDashboard({
         <TabsList aria-label="Workspace navigation" className="w-full sm:w-auto">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="fit-analysis">Fit analysis</TabsTrigger>
-          <TabsTrigger value="job-discovery">Find jobs</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard" className="space-y-6">
           <PipelineOverview
             stats={stats}
             gmailConnection={initialGmailConnection}
+            gmailImportReviews={initialGmailImportReviews}
             onApplicationsSynced={setApplications}
           />
 
@@ -396,9 +398,6 @@ export function ApplicationsDashboard({
         <TabsContent value="fit-analysis">
           <JobFitAnalyzer initialResumes={initialResumes} />
         </TabsContent>
-        <TabsContent value="job-discovery">
-          <JobDiscovery initialResumes={initialResumes} />
-        </TabsContent>
       </Tabs>
       {formOpen && (
         <ApplicationFormDialog open application={editing} onOpenChange={setFormOpen} onSave={saveApplication} />
@@ -427,6 +426,7 @@ export function ApplicationsDashboard({
 function PipelineOverview({
   stats,
   gmailConnection,
+  gmailImportReviews,
   onApplicationsSynced,
 }: {
   stats: {
@@ -440,6 +440,7 @@ function PipelineOverview({
     statusCounts: Record<ApplicationStatus, number>;
   };
   gmailConnection: GmailConnectionStatus;
+  gmailImportReviews: GmailImportReview[];
   onApplicationsSynced: (applications: Application[]) => void;
 }) {
   const rate = (count: number) => (stats.total ? Math.round((count / stats.total) * 100) : 0);
@@ -476,7 +477,11 @@ function PipelineOverview({
               Live application metrics and Gmail-assisted status updates.
             </CardDescription>
           </div>
-          <GmailSyncControl initialConnection={gmailConnection} onApplicationsSynced={onApplicationsSynced} />
+          <GmailSyncControl
+            initialConnection={gmailConnection}
+            initialImportReviews={gmailImportReviews}
+            onApplicationsSynced={onApplicationsSynced}
+          />
         </div>
       </CardHeader>
       <CardContent className="space-y-6">

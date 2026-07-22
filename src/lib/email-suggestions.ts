@@ -32,6 +32,16 @@ export type ApplicationEmailAnalysis = {
   reason: string;
 };
 
+export type GmailImportReview = {
+  id: string;
+  gmailMessageId: string;
+  subject: string;
+  sender: string;
+  receivedAt: string;
+  excerpt: string;
+  applications: ApplicationEmailAnalysis[];
+};
+
 export type ClassifiedEmail = GmailMessageSummary & {
   applicationId: string;
   detectedStatus: ApplicationStatus;

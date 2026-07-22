@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getDb } from "@/db";
 import { resumes } from "@/db/schema";
 import { analyzeJobFitWithAi } from "@/lib/ai-fit-analysis";
+import { generateResumeImprovements } from "@/lib/ai-resume-improvements";
+import { analyzeJobFit } from "@/lib/fit-analysis";
 import { requireUserId } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -21,13 +23,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "Choose a readable résumé and provide a full job description." }, { status: 400 });
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return Response.json(
-      { error: "AI analysis is not configured yet. Add OPENAI_API_KEY to enable it." },
-      { status: 503 },
-    );
-  }
-
   const [resume] = await getDb()
     .select({ extractedText: resumes.extractedText, parseStatus: resumes.parseStatus })
     .from(resumes)
@@ -39,11 +34,27 @@ export async function POST(request: Request) {
     return Response.json({ error: "This résumé does not contain enough readable text." }, { status: 422 });
   }
 
+  const offlineAnalysis = analyzeJobFit(resume.extractedText, parsed.data.jobPosting);
+  if (!process.env.OPENAI_API_KEY) {
+    return Response.json({ analysis: offlineAnalysis, improvements: null, source: "local" });
+  }
+
   try {
-    const analysis = await analyzeJobFitWithAi(resume.extractedText, parsed.data.jobPosting);
-    return Response.json({ analysis });
+    const [analysisResult, improvementsResult] = await Promise.allSettled([
+      analyzeJobFitWithAi(resume.extractedText, parsed.data.jobPosting, offlineAnalysis),
+      generateResumeImprovements(resume.extractedText, parsed.data.jobPosting),
+    ]);
+    if (analysisResult.status === "rejected") throw analysisResult.reason;
+    if (improvementsResult.status === "rejected") {
+      console.error("Tailored résumé improvements failed", improvementsResult.reason);
+    }
+    return Response.json({
+      analysis: analysisResult.value,
+      improvements: improvementsResult.status === "fulfilled" ? improvementsResult.value : null,
+      source: "ai",
+    });
   } catch (error) {
     console.error("AI fit analysis failed", error);
-    return Response.json({ error: "The AI analysis could not be completed. Try again shortly." }, { status: 502 });
+    return Response.json({ analysis: offlineAnalysis, improvements: null, source: "local" });
   }
 }

@@ -14,7 +14,6 @@ export function toSavedResume(row: typeof resumes.$inferSelect): SavedResume {
     isPrimary: row.isPrimary,
     pageCount: row.pageCount,
     parseStatus: row.parseStatus as SavedResume["parseStatus"],
-    extractedText: row.extractedText,
     atsScore: row.atsScore,
     atsAnalysis: row.atsAnalysis,
     createdAt: row.createdAt.toISOString(),
@@ -23,7 +22,9 @@ export function toSavedResume(row: typeof resumes.$inferSelect): SavedResume {
 
 export async function listResumes(): Promise<SavedResume[]> {
   const ownerId = await requireUserId();
-  const rows = await getDb().select().from(resumes)
+  const rows = await getDb()
+    .select()
+    .from(resumes)
     .where(eq(resumes.ownerId, ownerId))
     .orderBy(desc(resumes.isPrimary), desc(resumes.createdAt));
 

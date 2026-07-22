@@ -18,7 +18,11 @@ const fitAnalysisSchema = z.object({
   coverage: z.number().int().min(0).max(100),
 });
 
-export async function analyzeJobFitWithAi(resume: string, jobPosting: string): Promise<FitAnalysis> {
+export async function analyzeJobFitWithAi(
+  resume: string,
+  jobPosting: string,
+  offlineAnalysis: FitAnalysis,
+): Promise<FitAnalysis> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
 
@@ -29,11 +33,11 @@ export async function analyzeJobFitWithAi(resume: string, jobPosting: string): P
       {
         role: "system",
         content:
-          "You are a careful job-fit analyst. Compare only evidence explicitly present in the resume with requirements explicitly present in the job description. Never invent experience, dates, or credentials. Treat explicitly required years of experience as a material scoring constraint and preferred years more softly. Compare them only with dated or explicitly stated résumé evidence; if that evidence falls short, include the requirement in gaps and lower the score proportionately. Do not infer a numeric requirement from a senior title alone. Treat missing evidence as a gap, explain adjacent experience honestly, and make concise ATS-oriented suggestions. Score fit from 0 to 100 and calculate coverage as the percentage of material requirements with direct or clearly adjacent evidence.",
+          "You are a careful but practical job-fit analyst. Compare only evidence explicitly present in the resume with requirements explicitly present in the job description. Never invent experience, dates, or credentials. Give meaningful credit for clearly transferable or adjacent experience even when wording is not exact, and do not over-penalize optional qualifications or keyword differences. Treat explicit hard requirements and required years as material constraints; treat preferred experience softly. Compare numeric experience only with dated or explicitly stated résumé evidence. Do not infer a numeric requirement from a senior title alone. Missing evidence should be a candid gap, not an automatic disqualification. Make concise ATS-oriented suggestions. Score fit from 0 to 100 and calculate coverage across material requirements. A deterministic offline comparison is supplied as a calibration signal; assess it critically rather than blindly copying it.",
       },
       {
         role: "user",
-        content: `RESUME\n${resume}\n\nJOB DESCRIPTION\n${jobPosting}`,
+        content: `OFFLINE JOB-SPECIFIC COMPARISON\n${JSON.stringify(offlineAnalysis)}\n\nRESUME\n${resume}\n\nJOB DESCRIPTION\n${jobPosting}`,
       },
     ],
     text: {
@@ -42,5 +46,25 @@ export async function analyzeJobFitWithAi(resume: string, jobPosting: string): P
   });
 
   if (!response.output_parsed) throw new Error("The model did not return a fit analysis.");
-  return response.output_parsed;
+  const aiAnalysis = response.output_parsed;
+  const score = Math.round(offlineAnalysis.score * 0.3 + aiAnalysis.score * 0.7);
+  const coverage = Math.round(offlineAnalysis.coverage * 0.3 + aiAnalysis.coverage * 0.7);
+  const band =
+    aiAnalysis.signalsConsidered < 3
+      ? "Needs more detail"
+      : score >= 75
+        ? "Strong fit"
+        : score >= 55
+          ? "Competitive fit"
+          : score >= 35
+            ? "Stretch fit"
+            : "Limited fit";
+  return {
+    ...aiAnalysis,
+    score,
+    coverage,
+    band,
+    offlineScore: offlineAnalysis.score,
+    aiScore: aiAnalysis.score,
+  };
 }
