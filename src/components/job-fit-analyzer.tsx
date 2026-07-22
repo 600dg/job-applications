@@ -60,12 +60,12 @@ export function JobFitAnalyzer({ initialResumes }: { initialResumes: SavedResume
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resumeId: activeResumeId, jobPosting: posting }),
       });
-      const data = (await response.json()) as {
+      const data = await readApiResponse<{
         analysis?: FitAnalysis;
         improvements?: ResumeImprovementReport | null;
         source?: "ai" | "local";
         error?: string;
-      };
+      }>(response, "The analysis could not be completed.");
       if (!response.ok || !data.analysis) throw new Error(data.error ?? "AI analysis failed.");
       setResult(data.analysis);
       setImprovements(data.improvements ?? null);
@@ -96,7 +96,10 @@ export function JobFitAnalyzer({ initialResumes }: { initialResumes: SavedResume
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: jobUrl }),
       });
-      const data = (await response.json()) as { jobDescription?: string; sourceUrl?: string; error?: string };
+      const data = await readApiResponse<{ jobDescription?: string; sourceUrl?: string; error?: string }>(
+        response,
+        "The job page could not be imported.",
+      );
       if (!response.ok || !data.jobDescription) throw new Error(data.error ?? "The job page could not be imported.");
       setPosting(data.jobDescription);
       setJobUrl(data.sourceUrl ?? jobUrl);
@@ -487,4 +490,17 @@ function EmptyResult() {
       </CardContent>
     </Card>
   );
+}
+
+async function readApiResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const text = await response.text();
+  if (!text) {
+    throw new Error(response.status === 504 ? "The request timed out. Try again." : fallbackMessage);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    if (response.status === 504) throw new Error("The request timed out. Try again.");
+    throw new Error(response.ok ? fallbackMessage : `${fallbackMessage} Server returned ${response.status}.`);
+  }
 }
