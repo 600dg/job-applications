@@ -15,6 +15,7 @@ type ActionResult = { ok: true; application: Application } | { ok: false; error:
 type DeleteResult = { ok: true } | { ok: false; error: string };
 const applicationIdSchema = z.uuid();
 const applicationStatusSchema = z.enum(APPLICATION_STATUSES);
+const jobDescriptionSchema = z.string().trim().min(80).max(30_000);
 
 function applicationDateTimestamp(appliedDate: string) {
   return new Date(`${appliedDate}T12:00:00.000Z`);
@@ -67,6 +68,25 @@ export async function updateApplicationStatus(id: string, status: ApplicationSta
   const [updated] = await getDb()
     .update(applications)
     .set({ status: parsedStatus.data })
+    .where(and(eq(applications.id, id), eq(applications.ownerId, ownerId)))
+    .returning();
+
+  if (!updated) return { ok: false, error: "Application not found." };
+  revalidatePath("/");
+  return { ok: true, application: toApplication(updated) };
+}
+
+export async function updateApplicationJobDescription(id: string, jobDescription: string): Promise<ActionResult> {
+  const ownerId = await requireUserId();
+  const parsedId = applicationIdSchema.safeParse(id);
+  const parsedDescription = jobDescriptionSchema.safeParse(jobDescription);
+  if (!parsedId.success || !parsedDescription.success) {
+    return { ok: false, error: "The imported job description is not readable." };
+  }
+
+  const [updated] = await getDb()
+    .update(applications)
+    .set({ jobDescription: parsedDescription.data })
     .where(and(eq(applications.id, id), eq(applications.ownerId, ownerId)))
     .returning();
 

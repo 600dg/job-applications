@@ -10,6 +10,9 @@ export type Application = {
   status: ApplicationStatus;
   appliedDate: string;
   source: string;
+  salary: string;
+  jobUrl: string;
+  jobDescription: string;
   notes: string;
   updatedAt: string;
 };
@@ -23,6 +26,10 @@ export const SAMPLE_APPLICATIONS: Application[] = [
     status: "Interview",
     appliedDate: "2026-07-02",
     source: "Company site",
+    salary: "$150,000–$190,000 CAD",
+    jobUrl: "https://vercel.com/careers",
+    jobDescription:
+      "Build product experiences across Vercel's platform, collaborate with design and engineering, and ship polished features for developers.",
     notes: "Technical interview scheduled.",
     updatedAt: "2026-07-02T12:00:00.000Z",
   },
@@ -34,6 +41,9 @@ export const SAMPLE_APPLICATIONS: Application[] = [
     status: "Applied",
     appliedDate: "2026-07-08",
     source: "Referral",
+    salary: "",
+    jobUrl: "",
+    jobDescription: "",
     notes: "Referred by Jamie.",
     updatedAt: "2026-07-08T12:00:00.000Z",
   },
@@ -45,6 +55,9 @@ export const SAMPLE_APPLICATIONS: Application[] = [
     status: "Interview",
     appliedDate: "2026-06-25",
     source: "LinkedIn",
+    salary: "",
+    jobUrl: "",
+    jobDescription: "",
     notes: "Recruiter screen completed.",
     updatedAt: "2026-06-25T12:00:00.000Z",
   },
@@ -56,6 +69,9 @@ export const SAMPLE_APPLICATIONS: Application[] = [
     status: "Wishlist",
     appliedDate: "2026-07-12",
     source: "Company site",
+    salary: "",
+    jobUrl: "",
+    jobDescription: "",
     notes: "Tailor resume before applying.",
     updatedAt: "2026-07-12T12:00:00.000Z",
   },
@@ -67,6 +83,9 @@ export const SAMPLE_APPLICATIONS: Application[] = [
     status: "Rejected",
     appliedDate: "2026-06-12",
     source: "LinkedIn",
+    salary: "",
+    jobUrl: "",
+    jobDescription: "",
     notes: "Keep an eye on future roles.",
     updatedAt: "2026-06-12T12:00:00.000Z",
   },
@@ -78,6 +97,9 @@ export const SAMPLE_APPLICATIONS: Application[] = [
     status: "Offer",
     appliedDate: "2026-05-29",
     source: "Referral",
+    salary: "$175,000–$215,000 USD",
+    jobUrl: "",
+    jobDescription: "",
     notes: "Offer review on Friday.",
     updatedAt: "2026-05-29T12:00:00.000Z",
   },
@@ -89,6 +111,9 @@ export const SAMPLE_APPLICATIONS: Application[] = [
     status: "Applied",
     appliedDate: "2026-07-10",
     source: "Company site",
+    salary: "",
+    jobUrl: "",
+    jobDescription: "",
     notes: "Application received.",
     updatedAt: "2026-07-10T12:00:00.000Z",
   },
@@ -100,6 +125,9 @@ export const SAMPLE_APPLICATIONS: Application[] = [
     status: "Applied",
     appliedDate: "2026-07-05",
     source: "Indeed",
+    salary: "",
+    jobUrl: "",
+    jobDescription: "",
     notes: "Follow up next week.",
     updatedAt: "2026-07-05T12:00:00.000Z",
   },

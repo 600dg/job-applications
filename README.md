@@ -10,6 +10,7 @@ A private job-application dashboard and job-fit workspace built with Next.js, Ty
 - Saved résumé versions are parsed privately and can be selected as the primary version; uploads are not assigned a general ATS score.
 - Clerk-managed, read-only Gmail access stages high-confidence application confirmations and status updates for user review before any tracker changes.
 - Applications are ordered by their latest update. Manual editor saves use the **Applied on** date as their initial update date; the newest later matched Gmail email supplies the timestamp after that.
+- Selecting a company and role in the applications table opens a detail preview with salary, location, dates, source, posting link, saved job description, and notes. Missing posting details can be added through the same owner-scoped editor.
 - New accounts receive sample applications once; later changes persist.
 - The streamlined fit analyzer accepts pasted job text or attempts to import a public job URL, then combines an offline comparison with OpenAI structured analysis.
 - Each job-specific analysis includes grounded original-to-rewrite suggestions without modifying the uploaded PDF.
@@ -45,7 +46,7 @@ The Gmail button can turn Trackline's scheduled syncing on or off without removi
 ## Handoff status
 
 - Production deployment: [job-applications-red.vercel.app](https://job-applications-red.vercel.app)
-- Database migrations through `drizzle/0009_amazing_havok.sql` are applied.
+- Database migrations through `drizzle/0010_tearful_frank_castle.sql` are applied.
 - `CRON_SECRET` is configured in Vercel. Google OAuth credentials are configured only in Clerk.
 - Clerk currently uses development keys for this private deployment. That is acceptable for personal use; switch to a production Clerk instance before treating the app as public production.
 - The Clerk Google connection is configured and the personal inbox can sync with `gmail.readonly`.
