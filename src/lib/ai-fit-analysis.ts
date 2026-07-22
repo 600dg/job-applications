@@ -26,7 +26,7 @@ export async function analyzeJobFitWithAi(
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
 
-  const client = new OpenAI({ apiKey });
+  const client = new OpenAI({ apiKey, timeout: 50_000, maxRetries: 1 });
   const response = await client.responses.parse({
     model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
     input: [

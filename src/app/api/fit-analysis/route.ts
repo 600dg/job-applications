@@ -8,7 +8,7 @@ import { analyzeJobFit } from "@/lib/fit-analysis";
 import { requireUserId } from "@/lib/auth";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const requestSchema = z.object({
   resumeId: z.string().uuid(),
