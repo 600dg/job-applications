@@ -25,6 +25,9 @@ const EMPTY_FORM: FormValues = {
   status: "Applied",
   appliedDate: new Date().toISOString().slice(0, 10),
   source: "",
+  salary: "",
+  jobUrl: "",
+  jobDescription: "",
   notes: "",
 };
 
@@ -45,6 +48,9 @@ export function ApplicationFormDialog({ open, application, onOpenChange, onSave 
           status: application.status,
           appliedDate: application.appliedDate,
           source: application.source,
+          salary: application.salary,
+          jobUrl: application.jobUrl,
+          jobDescription: application.jobDescription,
           notes: application.notes,
         }
       : { ...EMPTY_FORM },
@@ -143,6 +149,34 @@ export function ApplicationFormDialog({ open, application, onOpenChange, onSave 
                 required
               />
             </Field>
+            <Field label="Salary" htmlFor="salary">
+              <Input
+                id="salary"
+                value={values.salary}
+                onChange={(e) => update("salary", e.target.value)}
+                placeholder="$80,000–$100,000 CAD"
+              />
+            </Field>
+            <Field label="Job posting URL" htmlFor="job-url">
+              <Input
+                id="job-url"
+                type="url"
+                value={values.jobUrl}
+                onChange={(e) => update("jobUrl", e.target.value)}
+                placeholder="https://company.com/jobs/role"
+              />
+            </Field>
+            <div className="sm:col-span-2">
+              <Field label="Job description" htmlFor="job-description">
+                <Textarea
+                  id="job-description"
+                  value={values.jobDescription}
+                  onChange={(e) => update("jobDescription", e.target.value)}
+                  placeholder="Paste the responsibilities, qualifications, and other posting details…"
+                  rows={7}
+                />
+              </Field>
+            </div>
             <div className="sm:col-span-2">
               <Field label="Notes" htmlFor="notes">
                 <Textarea

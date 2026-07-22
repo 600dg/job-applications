@@ -6,6 +6,7 @@ import {
   ArrowDownUp,
   BriefcaseBusiness,
   CalendarDays,
+  ChevronRight,
   CircleDashed,
   FilterX,
   MapPin,
@@ -18,6 +19,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { ApplicationFormDialog } from "@/components/application-form-dialog";
+import { ApplicationPreviewDialog } from "@/components/application-preview-dialog";
 import { JobFitAnalyzer } from "@/components/job-fit-analyzer";
 import { GmailSyncControl } from "@/components/gmail-sync-control";
 import {
@@ -50,6 +52,7 @@ import {
   createApplication,
   deleteApplication,
   updateApplication,
+  updateApplicationJobDescription,
   updateApplicationStatus,
 } from "@/app/actions/applications";
 import type { SavedResume } from "@/lib/resumes";
@@ -95,6 +98,7 @@ export function ApplicationsDashboard({
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Application | null>(null);
   const [deleting, setDeleting] = useState<Application | null>(null);
+  const [previewing, setPreviewing] = useState<Application | null>(null);
   const [mutationError, setMutationError] = useState("");
   const [statusUpdatingId, setStatusUpdatingId] = useState("");
 
@@ -147,6 +151,7 @@ export function ApplicationsDashboard({
     setFormOpen(true);
   }
   function openEdit(application: Application) {
+    setPreviewing(null);
     setEditing(application);
     setFormOpen(true);
   }
@@ -215,6 +220,13 @@ export function ApplicationsDashboard({
       setApplications((current) => current.map((item) => (item.id === application.id ? result.application : item)));
     }
     setStatusUpdatingId("");
+  }
+
+  async function importJobDescription(application: Application, jobDescription: string) {
+    const result = await updateApplicationJobDescription(application.id, jobDescription);
+    if (!result.ok) throw new Error(result.error);
+    setApplications((current) => current.map((item) => (item.id === application.id ? result.application : item)));
+    setPreviewing(result.application);
   }
 
   return (
@@ -328,8 +340,22 @@ export function ApplicationsDashboard({
                       {filteredApplications.map((application) => (
                         <TableRow key={application.id}>
                           <TableCell className="pl-6">
-                            <div className="font-medium">{application.role}</div>
-                            <div className="mt-1 text-sm text-muted-foreground">{application.company}</div>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewing(application)}
+                              className="group flex w-full min-w-0 items-center justify-between gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              aria-label={`Preview ${application.role} at ${application.company}`}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate font-medium group-hover:text-primary">
+                                  {application.role}
+                                </span>
+                                <span className="mt-1 block truncate text-sm text-muted-foreground">
+                                  {application.company}
+                                </span>
+                              </span>
+                              <ChevronRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+                            </button>
                           </TableCell>
                           <TableCell>
                             <Select
@@ -402,6 +428,12 @@ export function ApplicationsDashboard({
       {formOpen && (
         <ApplicationFormDialog open application={editing} onOpenChange={setFormOpen} onSave={saveApplication} />
       )}
+      <ApplicationPreviewDialog
+        application={previewing}
+        onOpenChange={(open) => !open && setPreviewing(null)}
+        onEdit={openEdit}
+        onDescriptionImported={importJobDescription}
+      />
       <AlertDialog open={Boolean(deleting)} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

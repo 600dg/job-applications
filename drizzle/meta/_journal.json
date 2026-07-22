@@ -71,6 +71,13 @@
       "when": 1784739309840,
       "tag": "0009_amazing_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784741485886,
+      "tag": "0010_tearful_frank_castle",
+      "breakpoints": true
     }
   ]
 }
