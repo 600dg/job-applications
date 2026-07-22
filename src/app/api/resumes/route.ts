@@ -4,7 +4,6 @@ import { and, desc, eq, ne } from "drizzle-orm";
 import { extractText, getDocumentProxy } from "unpdf";
 import { getDb } from "@/db";
 import { resumes } from "@/db/schema";
-import { analyzeResumeWithAi } from "@/lib/ai-resume-analysis";
 import { analyzeAtsReadiness } from "@/lib/ats-analysis";
 import { requireUserId } from "@/lib/auth";
 import { listResumes, toSavedResume } from "@/lib/resume-data";
@@ -57,14 +56,7 @@ export async function POST(request: Request) {
   }
 
   const parseStatus = extractedText.split(/\s+/).filter(Boolean).length >= 50 ? "ready" : "needs_ocr";
-  let atsAnalysis = analyzeAtsReadiness(extractedText, pageCount);
-  if (parseStatus === "ready" && process.env.OPENAI_API_KEY) {
-    try {
-      atsAnalysis = await analyzeResumeWithAi(extractedText, pageCount);
-    } catch (error) {
-      console.error("Initial AI résumé analysis failed; using the local fallback", error);
-    }
-  }
+  const atsAnalysis = analyzeAtsReadiness(extractedText, pageCount);
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
   const db = getDb();
   const existing = await db.select({ id: resumes.id }).from(resumes).where(eq(resumes.ownerId, ownerId)).limit(1);

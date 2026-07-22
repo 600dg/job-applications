@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, FileText, Loader2, ScanText, Star, Trash2, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, FileCheck2, FileText, Loader2, ScanText, Star, Trash2, Upload } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,11 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { ResumeImprovementDialog } from "@/components/resume-improvement-dialog";
-import type { AtsCheck, SavedResume } from "@/lib/resumes";
+import type { SavedResume } from "@/lib/resumes";
 
-const UPLOAD_STAGES = ["Uploading PDF...", "Extracting text...", "Running AI ATS analysis..."] as const;
-const UPLOAD_PROGRESS = [20, 50, 80] as const;
+const UPLOAD_STAGES = ["Uploading PDF...", "Extracting résumé text..."] as const;
+const UPLOAD_PROGRESS = [30, 75] as const;
 
 export function ResumeManager({
   initialResumes,
@@ -55,10 +54,7 @@ export function ResumeManager({
     const file = event.target.files?.[0];
     if (!file) return;
     setUploadStage(0);
-    const stageTimers = [
-      window.setTimeout(() => setUploadStage(1), 700),
-      window.setTimeout(() => setUploadStage(2), 2200),
-    ];
+    const stageTimers = [window.setTimeout(() => setUploadStage(1), 700)];
     setError("");
     try {
       const formData = new FormData();
@@ -124,7 +120,7 @@ export function ResumeManager({
         <div>
           <CardTitle>Résumé library</CardTitle>
           <CardDescription className="mt-1">
-            Private PDFs with an AI-assisted ATS review on upload. Maximum 10 MB.
+            Upload or select the private PDF you want to compare. Maximum 10 MB.
           </CardDescription>
         </div>
         <div>
@@ -188,7 +184,7 @@ export function ResumeManager({
                         {formatDate(resume.createdAt)}
                       </p>
                     </div>
-                    <span className="font-mono text-lg font-semibold">{resume.atsScore}</span>
+                    {resume.parseStatus === "ready" && <FileCheck2 className="size-5 text-emerald-300" />}
                   </div>
                 </button>
               ))}
@@ -212,7 +208,7 @@ export function ResumeManager({
               <ScanText className="mx-auto mb-3 size-8 text-muted-foreground" />
               <p className="font-medium">Upload your first résumé</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                We will extract its text and show exactly how the readiness score is calculated.
+                We will extract its text privately so it can be compared with a specific job.
               </p>
             </div>
           </button>
@@ -254,20 +250,16 @@ function ResumeReport({
     <div className="rounded-xl border border-border/80 p-5">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <div className="flex items-center gap-2">
-            <p className="text-sm text-muted-foreground">ATS readiness</p>
-            <Badge variant={resume.atsAnalysis.source === "ai" ? "secondary" : "outline"}>
-              {resume.atsAnalysis.source === "ai" ? "AI analysis" : "Local analysis"}
-            </Badge>
-          </div>
-          <div className="mt-1 flex items-end gap-2">
-            <span className="font-mono text-4xl font-semibold">{resume.atsScore}</span>
-            <span className="pb-1 text-sm text-muted-foreground">/ 100 · {resume.atsAnalysis.band}</span>
-          </div>
+          <p className="font-medium">{resume.fileName}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {resume.parseStatus === "ready"
+              ? "Readable and ready for a job-specific comparison."
+              : "This PDF needs OCR before it can be compared reliably."}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={onUse} disabled={resume.parseStatus !== "ready"}>
-            Use in matcher
+            Use this résumé
           </Button>
           {!resume.isPrimary && (
             <Button size="sm" variant="outline" onClick={onPrimary}>
@@ -280,62 +272,16 @@ function ResumeReport({
           </Button>
         </div>
       </div>
-      <Progress value={resume.atsScore} className="mt-4" aria-label={`ATS readiness ${resume.atsScore} out of 100`} />
       {resume.parseStatus === "needs_ocr" && (
         <div className="mt-4 flex gap-2 rounded-lg border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-200">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           Very little text could be extracted. This PDF may be scanned and needs OCR before reliable matching.
         </div>
       )}
-      <div className="mt-5 grid gap-2 sm:grid-cols-2">
-        {resume.atsAnalysis.checks.map((check) => (
-          <CheckRow key={check.id} check={check} />
-        ))}
-      </div>
-      {resume.atsAnalysis.suggestions.length > 0 && (
-        <div className="mt-5">
-          <p className="text-sm font-medium">Highest-impact improvements</p>
-          <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-            {resume.atsAnalysis.suggestions.map((suggestion) => (
-              <li key={suggestion} className="flex gap-2">
-                <span className="mt-2 size-1 shrink-0 rounded-full bg-current" />
-                {suggestion}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <div className="mt-5 flex flex-col items-start justify-between gap-3 rounded-xl border bg-card/50 p-4 sm:flex-row sm:items-center">
-        <div>
-          <p className="text-sm font-medium">Ready to revise it?</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Generate grounded before-and-after edits without changing the uploaded PDF.
-          </p>
-        </div>
-        <ResumeImprovementDialog resumeId={resume.id} />
-      </div>
-      <p className="mt-5 text-xs leading-relaxed text-muted-foreground">
-        This is an explainable readiness check, not a guaranteed score from any employer&apos;s ATS. The AI reviews
-        extracted text only; formatting that requires visual inspection is outside this version.
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+        Trackline scores this résumé only after you provide a target job description. The uploaded PDF is never changed
+        automatically.
       </p>
-    </div>
-  );
-}
-
-function CheckRow({ check }: { check: AtsCheck }) {
-  const Icon = check.status === "pass" ? CheckCircle2 : check.status === "warning" ? AlertTriangle : XCircle;
-  const tone =
-    check.status === "pass" ? "text-emerald-300" : check.status === "warning" ? "text-amber-300" : "text-rose-300";
-  return (
-    <div className="rounded-lg bg-muted/35 p-3">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Icon className={`size-4 ${tone}`} />
-        {check.label}
-        <span className="ml-auto font-mono text-xs text-muted-foreground">
-          {check.points}/{check.maxPoints}
-        </span>
-      </div>
-      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{check.detail}</p>
     </div>
   );
 }

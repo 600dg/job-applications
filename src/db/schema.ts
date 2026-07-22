@@ -124,6 +124,28 @@ export const gmailMessageReviews = pgTable(
   ],
 );
 
+export const gmailImportReviews = pgTable(
+  "gmail_import_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: text("owner_id").notNull(),
+    gmailMessageId: text("gmail_message_id").notNull(),
+    gmailThreadId: text("gmail_thread_id").notNull(),
+    subject: text("subject").notNull(),
+    sender: text("sender").notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull(),
+    excerpt: text("excerpt").notNull(),
+    analyses: jsonb("analyses").$type<ApplicationEmailAnalysis[]>().notNull(),
+    state: text("state").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("gmail_import_reviews_owner_state_idx").on(table.ownerId, table.state),
+    uniqueIndex("gmail_import_reviews_owner_message_idx").on(table.ownerId, table.gmailMessageId),
+  ],
+);
+
 export const jobProviderUsage = pgTable(
   "job_provider_usage",
   {

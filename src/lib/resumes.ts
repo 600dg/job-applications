@@ -28,7 +28,6 @@ export type SavedResume = {
   isPrimary: boolean;
   pageCount: number;
   parseStatus: ResumeParseStatus;
-  extractedText: string;
   atsScore: number;
   atsAnalysis: AtsAnalysis;
   createdAt: string;
